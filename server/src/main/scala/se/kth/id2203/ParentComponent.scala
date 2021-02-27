@@ -24,8 +24,10 @@
 package se.kth.id2203;
 
 import se.kth.id2203.broadcast._
+import se.kth.id2203.detector._
 import se.kth.id2203.bootstrapping._
 import se.kth.id2203.broadcast.PerfectP2PLink.PerfectLinkInit
+import se.kth.id2203.detector.EPFD.EPFDInit
 import se.kth.id2203.kvstore.KVService
 import se.kth.id2203.networking.NetAddress
 import se.kth.id2203.overlay._
@@ -48,8 +50,9 @@ class ParentComponent extends ComponentDefinition {
   }
 
   val self = cfg.getValue[NetAddress]("id2203.project.address");
-  val pl = create(classOf[PerfectP2PLink], PerfectLinkInit(self));
-  val beb = create(classOf[BasicBroadcast], Init.NONE)
+  val pl   = create(classOf[PerfectP2PLink], PerfectLinkInit(self));
+  val beb  = create(classOf[BasicBroadcast], Init.NONE)
+  val epfd = create(classOf[EPFD], EPFDInit(self));
 
   {
     connect[Timer](timer -> boot);
@@ -57,7 +60,8 @@ class ParentComponent extends ComponentDefinition {
     // Overlay
     connect(Bootstrapping)(boot -> overlay);
     connect[Network](net -> overlay);
-    connect[BestEffortBroadcast](beb -> overlay)
+    connect[BestEffortBroadcast](beb -> overlay);
+    connect[EventuallyPerfectFailureDetector](epfd -> overlay);
     // KV
     connect(Routing)(overlay -> kv);
     connect[Network](net -> kv);
@@ -65,5 +69,8 @@ class ParentComponent extends ComponentDefinition {
     connect[Network](net -> pl);
     // Beb
     connect(PerfectLink)(pl -> beb);
+    // epfd
+    connect[Timer](timer -> epfd)
+    connect(PerfectLink)( pl -> epfd)
   }
 }
