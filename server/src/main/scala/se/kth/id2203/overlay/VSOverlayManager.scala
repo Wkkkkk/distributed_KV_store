@@ -23,6 +23,7 @@
  */
 package se.kth.id2203.overlay;
 
+import se.kth.id2203.broadcast._;
 import se.kth.id2203.bootstrapping._;
 import se.kth.id2203.networking._;
 import se.sics.kompics.sl._;
@@ -47,9 +48,12 @@ class VSOverlayManager extends ComponentDefinition {
   val boot = requires(Bootstrapping);
   val net = requires[Network];
   val timer = requires[Timer];
+  val beb = requires[BestEffortBroadcast];
+
   //******* Fields ******
   val self = cfg.getValue[NetAddress]("id2203.project.address");
   private var lut: Option[LookupTable] = None;
+
   //******* Handlers ******
   boot uponEvent {
     case GetInitialAssignments(nodes) => {
@@ -61,6 +65,14 @@ class VSOverlayManager extends ComponentDefinition {
     case Booted(assignment: LookupTable) => {
       log.info("Got NodeAssignment, overlay ready.");
       lut = Some(assignment);
+      trigger(Set_Topology(assignment.getNodes()) -> beb);
+      trigger(BEB_Broadcast(BROADCAST_Test("Hi")) -> beb);
+    }
+  }
+
+  beb uponEvent {
+    case BEB_Deliver(src, payload) => {
+      log.info( s"received broadcast from $src with $payload")
     }
   }
 

@@ -23,13 +23,15 @@
  */
 package se.kth.id2203;
 
+import se.kth.id2203.broadcast._
 import se.kth.id2203.bootstrapping._
-import se.kth.id2203.kvstore.KVService;
-import se.kth.id2203.networking.NetAddress;
+import se.kth.id2203.broadcast.PerfectP2PLink.PerfectLinkInit
+import se.kth.id2203.kvstore.KVService
+import se.kth.id2203.networking.NetAddress
 import se.kth.id2203.overlay._
 import se.sics.kompics.sl._
-import se.sics.kompics.Init;
-import se.sics.kompics.network.Network;
+import se.sics.kompics.Init
+import se.sics.kompics.network.Network
 import se.sics.kompics.timer.Timer;
 
 class ParentComponent extends ComponentDefinition {
@@ -45,14 +47,23 @@ class ParentComponent extends ComponentDefinition {
     case None    => create(classOf[BootstrapServer], Init.NONE); // start in server mode
   }
 
+  val self = cfg.getValue[NetAddress]("id2203.project.address");
+  val pl = create(classOf[PerfectP2PLink], PerfectLinkInit(self));
+  val beb = create(classOf[BasicBroadcast], Init.NONE)
+
   {
     connect[Timer](timer -> boot);
     connect[Network](net -> boot);
     // Overlay
     connect(Bootstrapping)(boot -> overlay);
     connect[Network](net -> overlay);
+    connect[BestEffortBroadcast](beb -> overlay)
     // KV
     connect(Routing)(overlay -> kv);
     connect[Network](net -> kv);
+    // PerfectLink
+    connect[Network](net -> pl);
+    // Beb
+    connect(PerfectLink)(pl -> beb);
   }
 }
