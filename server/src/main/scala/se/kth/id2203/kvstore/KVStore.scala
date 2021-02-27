@@ -27,6 +27,8 @@ import se.kth.id2203.networking._;
 import se.kth.id2203.overlay.Routing;
 import se.sics.kompics.sl._;
 import se.sics.kompics.network.Network;
+import scala.collection.mutable
+
 
 class KVService extends ComponentDefinition {
 
@@ -35,15 +37,32 @@ class KVService extends ComponentDefinition {
   val route = requires(Routing);
   //******* Fields ******
   val self = cfg.getValue[NetAddress]("id2203.project.address");
+  val store = mutable.HashMap.empty[String, String];
+  init(10);
+
   //******* Handlers ******
   net uponEvent {
     case NetMessage(header, op @ Get(key, _)) => {
-      log.info("Got operation {}! Let's do it :)", op);
-      trigger(NetMessage(self, header.src, op.response(OpCode.NotImplemented)) -> net);
+      // trigger(NetMessage(self, header.src, op.response(OpCode.NotImplemented)) -> net);
+      val result = store.get(key);
+      log.info("Got operation {}! result is: {}", op, result);
+      if(result.isDefined)
+        trigger(NetMessage(self, header.src, op.response(OpCode.Ok, result)) -> net);
+      else
+        trigger(NetMessage(self, header.src, op.response(OpCode.NotFound, None)) -> net);
+      log.info("send back to {}", header.src);
     }
     case NetMessage(header, op @ Put(key, value, _)) => {
       log.info("Got operation {}! Let's do it together :)", op);
-      trigger(NetMessage(self, header.src, op.response(OpCode.NotImplemented)) -> net);
+//      trigger(NetMessage(self, header.src, op.response(OpCode.NotImplemented)) -> net);
+      store += ( key -> value );
+      trigger(NetMessage(self, header.src, op.response(OpCode.Ok)) -> net);
+    }
+  }
+
+  def init(amount: Int): Unit = {
+    for (i <- 0.to(amount) ) {
+      store += ( (s"$i", "value" + i) )
     }
   }
 }

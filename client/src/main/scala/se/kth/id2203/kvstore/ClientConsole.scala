@@ -66,7 +66,16 @@ class ClientConsole(val service: ClientService) extends CommandConsole with Pars
   val putCommand = parsed(putParser, usage = "put <key> <value>", descr = "Executes put for <key> <value>.") {
     case PutObject(key, value) =>
       // Create a PUT operation through ClientService
-      out.println("Implement me");
+    {
+      val fr = service.put(key, value);
+      out.println("Operation sent! Awaiting response...");
+      try {
+        val r = Await.result(fr, 5.seconds);
+        out.println("Operation is completed! Response was: " + r.status);
+      } catch {
+        case e: Throwable => logger.error("Error during op.", e);
+      }
+    }
   }
 
   val getCommand = parsed(getParser, usage = "get <key>", descr = "Executes get for <key>.") { key =>
@@ -74,7 +83,7 @@ class ClientConsole(val service: ClientService) extends CommandConsole with Pars
     out.println("Operation sent! Awaiting response...");
     try {
       val r = Await.result(fr, 5.seconds);
-      out.println("Operation is completed! Response was: " + r.status);
+      out.println("Operation is completed! Response was: " + r);
     } catch {
       case e: Throwable => logger.error("Error during op.", e);
     }

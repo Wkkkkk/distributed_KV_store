@@ -86,16 +86,16 @@ class VSOverlayManager extends ComponentDefinition {
   }
 
   beb uponEvent {
-    case BEB_Deliver(src, payload) => {
-      log.info( s"received broadcast from $src with $payload")
+    case BEB_Deliver(src, BROADCAST_WITH_SOURCE(source, payload)) => {
+      log.info( s"$self received broadcast from $src with $payload");
+      trigger(NetMessage(source, self, payload) -> net);
     }
   }
 
   net uponEvent {
     case NetMessage(header, RouteMsg(key, msg)) => {
-      val target = routeTo(key);
-      log.info(s"Forwarding message for key $key to $target");
-      trigger(NetMessage(header.src, target, msg) -> net);
+      log.info(s"Broadcast message to all alive nodes");
+      trigger(BEB_Broadcast(BROADCAST_WITH_SOURCE(header.src, msg)) -> beb);
     }
     case NetMessage(header, msg: Connect) => {
       lut match {
