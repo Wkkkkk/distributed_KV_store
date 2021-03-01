@@ -14,7 +14,7 @@ import scala.concurrent.Await
 case class PL_Deliver(src: NetAddress, payload: KompicsEvent) extends KompicsEvent;
 case class PL_Send(dest: NetAddress, payload: KompicsEvent) extends KompicsEvent;
 
-object PerfectLink extends Port {
+class PerfectLink extends Port {
   indication[PL_Deliver];
   request[PL_Send];
 }
@@ -26,7 +26,7 @@ object PerfectP2PLink {
 class PerfectP2PLink(init: PerfectLinkInit) extends ComponentDefinition {
 
   //******* Ports ******
-  val pLink = provides(PerfectLink);
+  val pLink = provides[PerfectLink];
   val network = requires[Network];
 
   //******* Fields ******
