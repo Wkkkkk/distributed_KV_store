@@ -21,20 +21,21 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package se.kth.id2203.simulation;
+package se.kth.id2203.simulation
 
-import java.util.UUID;
-import se.kth.id2203.kvstore._;
-import se.kth.id2203.networking._;
-import se.kth.id2203.overlay.RouteMsg;
+import se.kth.id2203.kvstore._
+import se.kth.id2203.networking._
+import se.kth.id2203.overlay.RouteMsg
+import se.sics.kompics.Start
+import se.sics.kompics.network.Network
 import se.sics.kompics.sl._
-import se.sics.kompics.Start;
-import se.sics.kompics.network.Network;
-import se.sics.kompics.timer.Timer;
-import se.sics.kompics.sl.simulator.SimulationResult;
-import collection.mutable;
+import se.sics.kompics.sl.simulator.SimulationResult
+import se.sics.kompics.timer.Timer
 
-class ScenarioClient extends ComponentDefinition {
+import java.util.UUID
+import scala.collection.mutable;
+
+class PutClient(init: Init[PutClient]) extends ComponentDefinition {
 
   //******* Ports ******
   val net = requires[Network];
@@ -47,8 +48,15 @@ class ScenarioClient extends ComponentDefinition {
   ctrl uponEvent {
     case _: Start => {
       val messages = SimulationResult[Int]("messages");
+      val (prefix:String , prefixValue:String) = init match {
+        case Init(prefix: String, prefixValue: String) => (prefix, prefixValue)
+        case _ => ("", "PUT")
+      };
+
       for (i <- 0 to messages) {
-        val op = new Get(s"$i");
+        val key = prefix + i;
+        val value = prefixValue + i;
+        val op = new Put(key, value);
         val routeMsg = RouteMsg(op.key, op); // don't know which partition is responsible, so ask the bootstrap server to forward it
         trigger(NetMessage(self, server, routeMsg) -> net);
         pending += (op.id -> op.key);
@@ -60,9 +68,9 @@ class ScenarioClient extends ComponentDefinition {
 
   net uponEvent {
     case NetMessage(header, or @ OpResponse(id, status, value)) => {
-      // logger.debug(s"Got OpResponse: $or");
+      logger.debug(s"Got OpResponse: $or");
       pending.remove(id) match {
-        case Some(key) => SimulationResult += (key -> status.toString());
+        case Some(key) => SimulationResult += (key -> status.toString);
         case None      => logger.warn("ID $id was not pending! Ignoring response.");
       }
     }

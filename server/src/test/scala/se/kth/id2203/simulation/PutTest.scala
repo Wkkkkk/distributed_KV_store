@@ -36,25 +36,26 @@ import se.sics.kompics.simulator.result.SimulationResultSingleton;
 import se.sics.kompics.simulator.network.impl.NetworkModels
 import scala.concurrent.duration._
 
-class OpsTest extends FlatSpec with Matchers {
+class PutTest extends FlatSpec with Matchers {
 
   private val nMessages = 10;
 
-  "Simple Operations" should "be implemented" in { // well of course eventually they should be implemented^^
+  "Put Operations" should "return ok" in {
     val seed = 123l;
     JSimulationScenario.setSeed(seed);
-    val simpleBootScenario = SimpleScenario.scenario(3);
+    val putScenario = PutScenario.scenario(3);
     val res = SimulationResultSingleton.getInstance();
     SimulationResult += ("messages" -> nMessages);
-    simpleBootScenario.simulate(classOf[LauncherComp]);
+    putScenario.simulate(classOf[LauncherComp]);
     for (i <- 0 to nMessages) {
+      // preloaded key-value pair: i -> valuei from 0 to 10
       SimulationResult.get[String](s"$i") should be (Some("Ok"));
     }
   }
 
 }
 
-object SimpleScenario {
+object PutScenario {
 
   import Distributions._
   // needed for the distributions, but needs to be initialised after setting the seed
@@ -98,7 +99,7 @@ object SimpleScenario {
     val conf = Map(
       "id2203.project.address" -> selfAddr,
       "id2203.project.bootstrap-address" -> intToServerAddress(1));
-    StartNode(selfAddr, Init.none[ScenarioClient], conf);
+    StartNode(selfAddr, Init[PutClient]("", "PUT"), conf);
   };
 
   def scenario(servers: Int): JSimulationScenario = {

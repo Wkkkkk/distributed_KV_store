@@ -36,25 +36,26 @@ import se.sics.kompics.simulator.result.SimulationResultSingleton;
 import se.sics.kompics.simulator.network.impl.NetworkModels
 import scala.concurrent.duration._
 
-class OpsTest extends FlatSpec with Matchers {
+class PutGetTest extends FlatSpec with Matchers {
 
   private val nMessages = 10;
 
-  "Simple Operations" should "be implemented" in { // well of course eventually they should be implemented^^
+  "Put-Get Operations" should "return correct result" in {
     val seed = 123l;
     JSimulationScenario.setSeed(seed);
-    val simpleBootScenario = SimpleScenario.scenario(3);
+    val putGetScenario = PutGetScenario.scenario(3);
     val res = SimulationResultSingleton.getInstance();
     SimulationResult += ("messages" -> nMessages);
-    simpleBootScenario.simulate(classOf[LauncherComp]);
+    putGetScenario.simulate(classOf[LauncherComp]);
     for (i <- 0 to nMessages) {
-      SimulationResult.get[String](s"$i") should be (Some("Ok"));
+      // preloaded key-value pair: i -> valuei from 0 to 10
+      SimulationResult.get[String](s"Put$i") should be (Some(s"PutGet$i"));
     }
   }
 
 }
 
-object SimpleScenario {
+object PutGetScenario {
 
   import Distributions._
   // needed for the distributions, but needs to be initialised after setting the seed
@@ -93,23 +94,37 @@ object SimpleScenario {
     StartNode(selfAddr, Init.none[ParentComponent], conf);
   };
 
-  val startClientOp = Op { (self: Integer) =>
+  val key = "Put"
+  val v = "PutGet"
+  val startPutClientOp = Op { (self: Integer) =>
     val selfAddr = intToClientAddress(self)
     val conf = Map(
       "id2203.project.address" -> selfAddr,
       "id2203.project.bootstrap-address" -> intToServerAddress(1));
-    StartNode(selfAddr, Init.none[ScenarioClient], conf);
+    StartNode(selfAddr, Init[PutClient](key, v), conf);
   };
 
+  val startGetClientOp = Op { (self: Integer) =>
+    val selfAddr = intToClientAddress(self)
+    val conf = Map(
+      "id2203.project.address" -> selfAddr,
+      "id2203.project.bootstrap-address" -> intToServerAddress(1));
+    StartNode(selfAddr, Init[GetClient](key), conf);
+  };
+
+  // @warning: In this scenario, Get occurs after Put is done,
+  // therefore it can only prove regularity.
   def scenario(servers: Int): JSimulationScenario = {
 
     val networkSetup = raise(1, setUniformLatencyNetwork()).arrival(constant(0));
     val startCluster = raise(servers, startServerOp, 1.toN).arrival(constant(1.second));
-    val startClients = raise(1, startClientOp, 1.toN).arrival(constant(1.second));
+    val startPutClients = raise(1, startPutClientOp, 1.toN).arrival(constant(1.second));
+    val startGetClients = raise(1, startGetClientOp, 1.toN).arrival(constant(1.second));
 
     networkSetup andThen
       0.seconds afterTermination startCluster andThen
-      10.seconds afterTermination startClients andThen
+      10.seconds afterTermination startPutClients andThen
+      10.seconds afterTermination startGetClients andThen
       100.seconds afterTermination Terminate
   }
 
