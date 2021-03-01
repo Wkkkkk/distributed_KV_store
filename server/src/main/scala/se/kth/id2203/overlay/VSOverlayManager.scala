@@ -46,6 +46,7 @@ class VSOverlayManager extends ComponentDefinition {
 
   //******* Ports ******
   val route = provides(Routing);
+  val topo = provides[Topology];
   val boot = requires(Bootstrapping);
   val net = requires[Network];
   val timer = requires[Timer];
@@ -69,10 +70,10 @@ class VSOverlayManager extends ComponentDefinition {
       log.info("Got NodeAssignment, overlay ready.");
       lut = Some(assignment);
       val nodes = assignment.getNodes();
-      trigger(Set_Topology(nodes) -> beb);
+      trigger(PartitionTopology(nodes) -> topo);
       trigger(BEB_Broadcast(BROADCAST_Test("Hi")) -> beb);
 
-      trigger(Monitor(nodes) -> epfd);
+      trigger(FullTopology(nodes) -> topo);
     }
   }
 

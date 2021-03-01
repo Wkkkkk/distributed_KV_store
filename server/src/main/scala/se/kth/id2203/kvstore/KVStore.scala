@@ -34,7 +34,6 @@ class KVService extends ComponentDefinition {
 
   //******* Ports ******
   val net = requires[Network];
-  val route = requires(Routing);
   //******* Fields ******
   val self = cfg.getValue[NetAddress]("id2203.project.address");
   val store = mutable.HashMap.empty[String, String];
@@ -56,7 +55,7 @@ class KVService extends ComponentDefinition {
       log.info("Got operation {}! Let's do it together :)", op);
 //      trigger(NetMessage(self, header.src, op.response(OpCode.NotImplemented)) -> net);
       store += ( key -> value );
-      trigger(NetMessage(self, header.src, op.response(OpCode.Ok)) -> net);
+      trigger(NetMessage(self, header.src, op.response(OpCode.Ok, store.get(key))) -> net);
     }
   }
 

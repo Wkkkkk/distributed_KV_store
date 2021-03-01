@@ -1,49 +1,52 @@
 package se.kth.id2203.broadcast
 
-import se.kth.id2203.networking.NetAddress
-import se.sics.kompics.KompicsEvent
-import se.sics.kompics.sl.{ComponentDefinition, Init, Port, handle}
+import se.sics.kompics.network._
+import se.sics.kompics.sl.{Init, _}
+import se.sics.kompics.{ComponentDefinition => _, Port => _, KompicsEvent}
+import se.kth.id2203.networking._
 
 import scala.collection.immutable.Set
-
-case class BROADCAST_Test(msg: String) extends KompicsEvent;
-case class BROADCAST_WITH_SOURCE(src: NetAddress, payload: KompicsEvent) extends KompicsEvent;
-case class BEB_Deliver(src: NetAddress, payload: KompicsEvent) extends KompicsEvent;
-case class BEB_Broadcast(payload: KompicsEvent) extends KompicsEvent;
-case class Set_Topology(topology: Set[NetAddress]) extends KompicsEvent;
+import scala.collection.mutable.ListBuffer
 
 class BestEffortBroadcast extends Port {
   indication[BEB_Deliver];
   request[BEB_Broadcast];
-  request[Set_Topology];
 }
+
+case class BROADCAST_Test(msg: String) extends KompicsEvent;
+case class BROADCAST_WITH_SOURCE(src: NetAddress, payload: KompicsEvent) extends KompicsEvent;
+case class BEB_Deliver(source: NetAddress, payload: KompicsEvent) extends KompicsEvent;
+case class BEB_Broadcast(payload: KompicsEvent) extends KompicsEvent;
 
 class BasicBroadcast extends ComponentDefinition {
 
   //******* Ports ******
-  val pLink = requires(PerfectLink);
   val beb = provides[BestEffortBroadcast];
+  val net = requires[Network];
+  val topo = requires[Topology];
 
   //******* Fields ******
   val self = cfg.getValue[NetAddress]("id2203.project.address");
-  var topology = Set[NetAddress]();
+  var topology: Set[NetAddress] = Set(self)
 
   //******* Handlers ******
   beb uponEvent {
     case x: BEB_Broadcast => {
-      //println( s"sending broadcast with $topology")
-      for (q <- topology) {
-        trigger(PL_Send(q, x) -> pLink)
+      for (p <- topology) {
+        trigger( NetMessage(self, p, x) -> net )
       }
-    }
-    case Set_Topology(setNodes) => {
-      topology = setNodes
     }
   }
 
-  pLink uponEvent {
-    case PL_Deliver(src, BEB_Broadcast(payload)) => {
-      trigger(BEB_Deliver(src, payload) -> beb)
+  net uponEvent {
+    case NetMessage(header, BEB_Broadcast(payload)) => {
+      trigger( BEB_Deliver(header.src, payload) -> beb )
+    }
+  }
+
+  topo uponEvent {
+    case PartitionTopology(nodes) => {
+      topology = nodes
     }
   }
 }
