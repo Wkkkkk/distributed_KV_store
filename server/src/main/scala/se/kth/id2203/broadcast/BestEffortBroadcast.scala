@@ -13,8 +13,6 @@ class BestEffortBroadcast extends Port {
   request[BEB_Broadcast];
 }
 
-case class BROADCAST_Test(msg: String) extends KompicsEvent;
-case class BROADCAST_WITH_SOURCE(src: NetAddress, payload: KompicsEvent) extends KompicsEvent;
 case class BEB_Deliver(source: NetAddress, payload: KompicsEvent) extends KompicsEvent;
 case class BEB_Broadcast(payload: KompicsEvent) extends KompicsEvent;
 
