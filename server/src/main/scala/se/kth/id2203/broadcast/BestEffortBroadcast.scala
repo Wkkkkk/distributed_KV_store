@@ -17,17 +17,16 @@ case class BEB_Deliver(source: NetAddress, payload: KompicsEvent) extends Kompic
 case class BEB_Broadcast(payload: KompicsEvent) extends KompicsEvent;
 
 class BasicBroadcast extends ComponentDefinition {
-
-  //******* Ports ******
+  //ports
   val beb = provides[BestEffortBroadcast];
   val net = requires[Network];
   val topo = requires[Topology];
 
-  //******* Fields ******
+  //configuration
   val self = cfg.getValue[NetAddress]("id2203.project.address");
   var topology: Set[NetAddress] = Set(self)
 
-  //******* Handlers ******
+  //handlers
   beb uponEvent {
     case x: BEB_Broadcast => {
       for (p <- topology) {

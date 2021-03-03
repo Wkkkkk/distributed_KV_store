@@ -48,14 +48,14 @@ class ParentComponent extends ComponentDefinition {
     case Some(_) => create(classOf[BootstrapClient], Init.NONE); // start in client mode
     case None    => create(classOf[BootstrapServer], Init.NONE); // start in server mode
   }
-  val beb = create(classOf[BasicBroadcast], Init[BasicBroadcast]());
-  val rb = create(classOf[EagerReliableBroadcast], Init[EagerReliableBroadcast]());
-  val ble = create(classOf[GossipLeaderElection], Init[GossipLeaderElection]());
+  val beb = create(classOf[BasicBroadcast], Init.NONE);
+  val rb = create(classOf[EagerReliableBroadcast], Init.NONE);
+  val ble = create(classOf[GossipLeaderElection], Init.NONE);
   val sc = cfg.readValue[Boolean]("id2203.project.useTimeLease") match {
-    case Some(true) => create(classOf[SequencePaxos], Init[SequencePaxos]())
-    case _ => create(classOf[SequencePaxos], Init[SequencePaxos]())
+    case Some(true) => create(classOf[SequencePaxos], Init.NONE)
+    case _ => create(classOf[SequencePaxos], Init.NONE)
   }
-  val epfd = create(classOf[EPFD], Init[EPFD]())
+  val epfd = create(classOf[EPFD], Init.NONE)
 
   {
     // Bootstrapping

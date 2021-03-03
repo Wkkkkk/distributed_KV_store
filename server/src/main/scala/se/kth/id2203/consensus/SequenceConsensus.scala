@@ -37,7 +37,7 @@ object Role extends Enumeration {
   val LEADER, FOLLOWER = Value
 }
 
-class SequencePaxos(init: Init[SequencePaxos]) extends ComponentDefinition {
+class SequencePaxos extends ComponentDefinition {
   def suffix(s: List[RSM_Command], l: Int): List[RSM_Command] = {
     s.drop(l)
   }
