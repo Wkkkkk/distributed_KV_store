@@ -25,6 +25,7 @@ package se.kth.id2203;
 
 import se.kth.id2203.broadcast._
 import se.kth.id2203.detector._
+import se.kth.id2203.consensus._
 import se.kth.id2203.bootstrapping._
 import se.kth.id2203.broadcast.PerfectP2PLink.PerfectLinkInit
 import se.kth.id2203.kvstore.KVService
@@ -47,25 +48,46 @@ class ParentComponent extends ComponentDefinition {
     case Some(_) => create(classOf[BootstrapClient], Init.NONE); // start in client mode
     case None    => create(classOf[BootstrapServer], Init.NONE); // start in server mode
   }
-  val beb  = create(classOf[BasicBroadcast], Init.NONE);
-  val epfd = create(classOf[EPFD], Init.NONE);
+  val beb = create(classOf[BasicBroadcast], Init[BasicBroadcast]());
+  val rb = create(classOf[EagerReliableBroadcast], Init[EagerReliableBroadcast]());
+  val ble = create(classOf[GossipLeaderElection], Init[GossipLeaderElection]());
+  val sc = cfg.readValue[Boolean]("id2203.project.useTimeLease") match {
+    case Some(true) => create(classOf[SequencePaxos], Init[SequencePaxos]())
+    case _ => create(classOf[SequencePaxos], Init[SequencePaxos]())
+  }
+  val epfd = create(classOf[EPFD], Init[EPFD]())
 
   {
+    // Bootstrapping
     connect[Timer](timer -> boot);
     connect[Network](net -> boot);
     // Overlay
     connect(Bootstrapping)(boot -> overlay);
     connect[Network](net -> overlay);
-    connect[BestEffortBroadcast](beb -> overlay);
-    connect[EventuallyPerfectFailureDetector](epfd -> overlay);
+    connect[EventuallyPerfectFailureDetector](epfd -> overlay)
     // KV
     connect[Network](net -> kv);
     // broadcast
     connect[Network](net -> beb);
+    connect[BestEffortBroadcast](beb -> rb);
+    connect[ReliableBroadcast](rb -> kv);
     connect[Topology](overlay -> beb);
+    // leader election
+    connect[Network](net -> ble);
+    connect[Timer](timer -> ble);
+    connect[Topology](overlay -> ble);
+    // paxos
+    connect[Network](net -> sc);
+    connect[Topology](overlay -> sc);
+    connect[BallotLeaderElection](ble -> sc);
+    connect[SequenceConsensus](sc -> kv);
+    cfg.readValue[Boolean]("id2203.project.useTimeLease") match {
+      case Some(true) => connect[Timer](timer -> sc);
+      case _ =>
+    }
     // epfd
-    connect[Topology](overlay -> epfd);
-    connect[Network](net -> epfd);
-    connect[Timer](timer -> epfd);
+    connect[Topology](overlay -> epfd)
+    connect[Network](net -> epfd)
+    connect[Timer](timer -> epfd)
   }
 }

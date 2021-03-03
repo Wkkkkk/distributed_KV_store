@@ -23,12 +23,11 @@
  */
 package se.kth.id2203.overlay;
 
-import com.larskroll.common.collections._;
-import java.util.Collection;
-import se.kth.id2203.bootstrapping.NodeAssignment;
+import com.larskroll.common.collections._
+import se.kth.id2203.bootstrapping.NodeAssignment
 import se.kth.id2203.networking.NetAddress;
 
-@SerialVersionUID(6322485231428233902L)
+@SerialVersionUID(0x57bdfad1eceeeaaeL)
 class LookupTable extends NodeAssignment with Serializable {
 
   val partitions = TreeSetMultiMap.empty[Int, NetAddress];
@@ -37,7 +36,7 @@ class LookupTable extends NodeAssignment with Serializable {
     val keyHash = key.hashCode();
     val partition = partitions.floor(keyHash) match {
       case Some(k) => k
-      case None    => partitions.lastKey
+      case None => partitions.lastKey
     }
     return partitions(partition);
   }
@@ -59,7 +58,30 @@ class LookupTable extends NodeAssignment with Serializable {
 object LookupTable {
   def generate(nodes: Set[NetAddress]): LookupTable = {
     val lut = new LookupTable();
-    lut.partitions ++= (0 -> nodes);
+    lut.partitions ++= (Int.MinValue -> nodes);
+    return lut;
+  }
+  def generate(nodes: Set[NetAddress], replicationDegree: Int, minKey: Long, maxKey: Long): LookupTable = {
+    if(nodes.size < replicationDegree) {
+      return generate(nodes)
+    }
+    val lut = new LookupTable()
+    val nReplicationGroups = nodes.size/replicationDegree
+    val keySpaceSize = maxKey - minKey + 1
+    val keyRangeSize: Int = if ((keySpaceSize/nReplicationGroups) > Int.MaxValue.toLong) Int.MaxValue else (keySpaceSize/nReplicationGroups).toInt
+    val nodesAsList = nodes.toList.sortWith((x, y) => {
+      val xIp = x.getIp().toString
+      val yIp = y.getIp().toString
+      xIp.split('.').last.toInt < yIp.split('.').last.toInt
+    })
+    var nodeIdx = 0
+    for(i <- 0 until nReplicationGroups) {
+      lut.partitions ++= ( minKey.toInt + i*keyRangeSize -> Set() );
+      for(_ <- 0 until replicationDegree) {
+        lut.partitions(lut.partitions.lastKey) += nodesAsList(nodeIdx)
+        nodeIdx += 1
+      }
+    }
     lut
   }
 }

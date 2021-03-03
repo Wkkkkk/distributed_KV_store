@@ -29,7 +29,7 @@ class Paxos(paxosInit: Init[Paxos]) extends ComponentDefinition {
 
   implicit def addComparators[A](x: A)(implicit o: math.Ordering[A]): o.OrderingOps = o.mkOrderingOps(x);
 
-  def toRank(addr : NetAddress) : Int = {
+  def toRank(addr: NetAddress): Int = {
     return addr.getIp().getAddress()(3).toInt;
   }
 
@@ -73,12 +73,10 @@ class Paxos(paxosInit: Init[Paxos]) extends ComponentDefinition {
     }
   }
 
-
   beb uponEvent {
-
     case BEB_Deliver(src, prep: Prepare) => {
       val ballot = prep.proposalBallot;
-      if(promisedBallot < ballot) {
+      if (promisedBallot < ballot) {
         promisedBallot = ballot;
         trigger(PL_Send(src, Promise(promisedBallot, acceptedBallot, acceptedValue)) -> plink);
       } else {
@@ -89,18 +87,18 @@ class Paxos(paxosInit: Init[Paxos]) extends ComponentDefinition {
     case BEB_Deliver(src, acc: Accept) => {
       val ballot = acc.acceptBallot;
       val proposedValue = acc.proposedValue;
-      if(promisedBallot <= ballot) {
+      if (promisedBallot <= ballot) {
         promisedBallot = ballot;
         acceptedBallot = ballot;
-        acceptedValue  = Option(proposedValue);
+        acceptedValue = Option(proposedValue);
         trigger(PL_Send(src, Accepted(ballot)) -> plink);
       } else {
         trigger(PL_Send(src, Nack(ballot)) -> plink);
       }
     };
 
-    case BEB_Deliver(src, dec : Decided) => {
-      if(!decided) {
+    case BEB_Deliver(src, dec: Decided) => {
+      if (!decided) {
         val v = dec.decidedValue;
         trigger(C_Decide(v) -> consensus);
         decided = true;
@@ -113,10 +111,10 @@ class Paxos(paxosInit: Init[Paxos]) extends ComponentDefinition {
     case PL_Deliver(src, prepAck: Promise) => {
       if ((round, rank) == prepAck.promiseBallot) {
         promises += ((prepAck.acceptedBallot, prepAck.acceptedValue));
-        if(promises.length == (numProcesses + 2)/2) {
+        if (promises.length == (numProcesses / 2 + 1)) {
 
           var (maxBallot, value) = promises.maxBy(_._1);
-          if(value.isDefined) {
+          if (value.isDefined) {
             proposedValue = value.get;
           }
           trigger(BEB_Broadcast(Accept((round, rank), proposedValue)) -> beb);
@@ -128,7 +126,7 @@ class Paxos(paxosInit: Init[Paxos]) extends ComponentDefinition {
     case PL_Deliver(src, accAck: Accepted) => {
       if ((round, rank) == accAck.acceptedBallot) {
         numOfAccepts += 1;
-        if(numOfAccepts == (numProcesses + 2)/2) {
+        if (numOfAccepts == (numProcesses / 2 + 1)) {
           trigger(BEB_Broadcast(Decided(proposedValue)) -> beb);
         }
       }
@@ -140,6 +138,4 @@ class Paxos(paxosInit: Init[Paxos]) extends ComponentDefinition {
       }
     }
   }
-
-
 };
