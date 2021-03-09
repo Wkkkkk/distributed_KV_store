@@ -15,29 +15,12 @@ import scala.concurrent.duration._
 
 class PutCasTest extends FlatSpec with Matchers {
 
-  private val nMessages = 100;
-
-  //  "Classloader" should "be something" in {
-  //    val cname = classOf[SimulationResultSingleton].getCanonicalName();
-  //    var cl = classOf[SimulationResultSingleton].getClassLoader;
-  //    var i = 0;
-  //    while (cl != null) {
-  //      val res = try {
-  //        val c = cl.loadClass(cname);
-  //        true
-  //      } catch {
-  //        case t: Throwable => false
-  //      }
-  //      println(s"$i -> ${cl.getClass.getName} has class? $res");
-  //      cl = cl.getParent();
-  //      i -= 1;
-  //    }
-  //  }
+  private val nMessages = 10;
 
   "Cas-NotFound" should "fail by not finding key" in {
     val seed = 123l;
     JSimulationScenario.setSeed(seed);
-    val keyNotFoundCas = PutCasScenario.scenarioCasNotFinding(3);
+    val keyNotFoundCas = PutCasScenario.scenarioCasNotFinding(6);
     val res = SimulationResultSingleton.getInstance();
     SimulationResult += ("messages" -> nMessages);
     keyNotFoundCas.simulate(classOf[LauncherComp]);
@@ -49,7 +32,7 @@ class PutCasTest extends FlatSpec with Matchers {
   "Cas-ReferenceValuesIsNotCurrentValue" should "fail by incorrect referenceValue" in {
     val seed = 123l;
     JSimulationScenario.setSeed(seed);
-    val failingGetScenario = PutCasScenario.scenarioCasOldValueIncorrect(3);
+    val failingGetScenario = PutCasScenario.scenarioCasOldValueIncorrect(6);
     val res = SimulationResultSingleton.getInstance();
     SimulationResult += ("messages" -> nMessages);
     failingGetScenario.simulate(classOf[LauncherComp]);
@@ -61,7 +44,7 @@ class PutCasTest extends FlatSpec with Matchers {
   "Put-Cas sequence" should "work" in {
     val seed = 123l;
     JSimulationScenario.setSeed(seed);
-    val putCasScenario = PutCasScenario.scenarioPutCas(3);
+    val putCasScenario = PutCasScenario.scenarioPutCas(6);
     val res = SimulationResultSingleton.getInstance();
     SimulationResult += ("messages" -> nMessages);
     putCasScenario.simulate(classOf[LauncherComp]);
@@ -73,7 +56,7 @@ class PutCasTest extends FlatSpec with Matchers {
   "Put for several values" should "work" in {
     val seed = 123l;
     JSimulationScenario.setSeed(seed);
-    val putCasScenario = PutCasScenario.scenarioPut(3);
+    val putCasScenario = PutCasScenario.scenarioPut(6);
     val res = SimulationResultSingleton.getInstance();
     SimulationResult += ("messages" -> nMessages);
     putCasScenario.simulate(classOf[LauncherComp]);
@@ -146,8 +129,8 @@ object PutCasScenario {
     val startClients = raise(1, startClientCasNotFinding, 1.toN).arrival(constant(1.second));
 
     startCluster andThen
-      60.seconds afterTermination startClients andThen
-      60.seconds afterTermination Terminate
+      20.seconds afterTermination startClients andThen
+      20.seconds afterTermination Terminate
   }
 
   //incorrect cas value scenario
@@ -157,8 +140,8 @@ object PutCasScenario {
     val startClients = raise(1, startClientCasOldValueIncorrect, 1.toN).arrival(constant(1.second));
 
     startCluster andThen
-      60.seconds afterTermination startClients andThen
-      60.seconds afterTermination Terminate
+      20.seconds afterTermination startClients andThen
+      20.seconds afterTermination Terminate
   }
 
   val startClientCasOldValueIncorrect = Op { (self: Integer) =>
@@ -168,8 +151,6 @@ object PutCasScenario {
       "id2203.project.bootstrap-address" -> intToServerAddress(2));
     StartNode(selfAddr, Init[CasScenarioClient]("test", "incorrectOldValue"), conf);
   };
-
-
 
   //put cas combo
   val key = "put"
@@ -190,7 +171,6 @@ object PutCasScenario {
     StartNode(selfAddr, Init[CasScenarioClient](key, v), conf);
   };
 
-
   def scenarioPutCas(servers: Int): JSimulationScenario = {
 
     val startCluster = raise(servers, startServerOp, 1.toN).arrival(constant(1.second));
@@ -198,9 +178,9 @@ object PutCasScenario {
     val startClientsCas = raise(1, startClientCasAfterPut, 1.toN).arrival(constant(1.second));
 
     startCluster andThen
-      60.seconds afterTermination startClientsPut andThen
-      60.seconds afterTermination startClientsCas andThen
-      60.seconds afterTermination Terminate
+      20.seconds afterTermination startClientsPut andThen
+      20.seconds afterTermination startClientsCas andThen
+      20.seconds afterTermination Terminate
   }
 
   def scenarioPut(servers: Int): JSimulationScenario = {
@@ -209,7 +189,7 @@ object PutCasScenario {
     val startClientsPut = raise(1, startClientPut, 1.toN).arrival(constant(1.second));
 
     startCluster andThen
-      60.seconds afterTermination startClientsPut andThen
-      60.seconds afterTermination Terminate
+      20.seconds afterTermination startClientsPut andThen
+      20.seconds afterTermination Terminate
   }
 }

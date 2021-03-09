@@ -37,7 +37,7 @@ import scala.concurrent.duration._
 
 class OpsTest extends FlatSpec with Matchers {
 
-  private val nMessages = 100;
+  private val nMessages = 10;
 
   //  "Classloader" should "be something" in {
   //    val cname = classOf[SimulationResultSingleton].getCanonicalName();
@@ -59,7 +59,7 @@ class OpsTest extends FlatSpec with Matchers {
   "Simple Operations" should " be implemented" in { // well of course eventually they should be implemented^^
     val seed = 123l;
     JSimulationScenario.setSeed(seed);
-    val simpleBootScenario = SimpleScenario.scenario(3);
+    val simpleBootScenario = SimpleScenario.scenario(6);
     val res = SimulationResultSingleton.getInstance();
     SimulationResult += ("messages" -> nMessages);
     simpleBootScenario.simulate(classOf[LauncherComp]);
@@ -122,8 +122,8 @@ object SimpleScenario {
     val startClients = raise(1, startClientOp, 1.toN).arrival(constant(1.second));
 
     startCluster andThen
-      60.seconds afterTermination startClients andThen
-      60.seconds afterTermination Terminate
+      20.seconds afterTermination startClients andThen
+      20.seconds afterTermination Terminate
   }
 
 }

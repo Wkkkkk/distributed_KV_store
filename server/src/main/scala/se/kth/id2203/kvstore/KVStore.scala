@@ -45,7 +45,7 @@ class KVService extends ComponentDefinition {
   //******* Fields ******
   val self = cfg.getValue[NetAddress]("id2203.project.address");
   val store: collection.mutable.Map[String, String] = collection.mutable.Map.empty
-  init(10)
+  init(100)
 
   //******* Handlers ******
   net uponEvent {
@@ -74,10 +74,16 @@ class KVService extends ComponentDefinition {
           trigger(NetMessage(self, header.src, op.response(OpCode.Ok, store.get(p.key))) -> net)
         }
         case c: Cas => {
-          if(store.get(c.key).isDefined && store(c.key) == c.compareValue) {
-            store(c.key) = c.setValue
+          if (store.contains(c.key) ) {
+            val result = store(c. key)
+            if ( c.compareValue == result ) {
+              store += (c.key -> c.setValue)
+              trigger(NetMessage(self, header.src, op.response(OpCode.Ok, Some(result))) -> net);
+            } else
+              trigger(NetMessage(self, header.src, op.response(OpCode.ReferenceValuesIsNotCurrentValue, None)) -> net);
+          } else  {
+            trigger(NetMessage(self, header.src, op.response(OpCode.NotFound, None)) -> net);
           }
-          trigger(NetMessage(self, header.src, op.response(OpCode.Ok, store.get(c.key))) -> net)
         }
       }
     }
@@ -85,7 +91,7 @@ class KVService extends ComponentDefinition {
 
   def init(amount: Int): Unit = {
     for (i <- 0.to(amount) ) {
-      store += ( (s"$i", "value" + i) )
+      store += ( (s"test$i", "value" + i) )
     }
   }
 }

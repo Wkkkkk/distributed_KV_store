@@ -49,6 +49,7 @@ object OpCode {
   case object Ok extends OpCode;
   case object NotFound extends OpCode;
   case object NotImplemented extends OpCode;
+  case object ReferenceValuesIsNotCurrentValue extends OpCode;
 }
 
 @SerialVersionUID(155271583133228661L)

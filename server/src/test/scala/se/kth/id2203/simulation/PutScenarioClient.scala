@@ -71,7 +71,7 @@ class PutScenarioClient(init: Init[PutScenarioClient]) extends ComponentDefiniti
     case NetMessage(header, or @ OpResponse(id, status, value)) => {
       logger.debug(s"Got OpResponse: $or");
       pending.remove(id) match {
-        case Some(key) => SimulationResult += (key -> status.toString());
+        case Some(key) => SimulationResult += (key -> status.toString);
         case None      => logger.warn(s"ID $id was not pending! Ignoring response.");
       }
     }
