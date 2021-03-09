@@ -23,6 +23,8 @@
  */
 package se.kth.id2203.kvstore;
 
+import se.kth.id2203.broadcast._;
+import se.kth.id2203.consensus._;
 import se.kth.id2203.networking._;
 import se.kth.id2203.overlay.Routing;
 import se.sics.kompics.sl._;
@@ -30,32 +32,54 @@ import se.sics.kompics.network.Network;
 import scala.collection.mutable
 
 
-class KVService extends ComponentDefinition {
+case class KVCommand(header: NetHeader, op: Operation) extends RSM_Command with KompicsEvent {
+  override def isRead: Boolean = op.isInstanceOf[Get]
+}
 
+class KVService extends ComponentDefinition {
   //******* Ports ******
   val net = requires[Network];
+  val rb = requires[ReliableBroadcast];
+  val sc = requires[SequenceConsensus];
+
   //******* Fields ******
   val self = cfg.getValue[NetAddress]("id2203.project.address");
-  val store = mutable.HashMap.empty[String, String];
-  init(10);
+  val store: collection.mutable.Map[String, String] = collection.mutable.Map.empty
+  init(10)
 
   //******* Handlers ******
   net uponEvent {
-    case NetMessage(header, op @ Get(key, _)) => {
-      // trigger(NetMessage(self, header.src, op.response(OpCode.NotImplemented)) -> net);
-      val result = store.get(key);
-      log.info("Got operation {}! result is: {}", op, result);
-      if(result.isDefined)
-        trigger(NetMessage(self, header.src, op.response(OpCode.Ok, result)) -> net);
-      else
-        trigger(NetMessage(self, header.src, op.response(OpCode.NotFound, None)) -> net);
-      log.info("send back to {}", header.src);
+    case NetMessage(header, op: Operation) => {
+      trigger(RB_Broadcast(KVCommand(header, op)) -> rb)
     }
-    case NetMessage(header, op @ Put(key, value, _)) => {
-      log.info("Got operation {}! Let's do it together :)", op);
-//      trigger(NetMessage(self, header.src, op.response(OpCode.NotImplemented)) -> net);
-      store += ( key -> value );
-      trigger(NetMessage(self, header.src, op.response(OpCode.Ok, store.get(key))) -> net);
+  }
+
+  rb uponEvent {
+    case RB_Deliver(src, kvc: KVCommand) => {
+      trigger(SC_Propose(kvc) -> sc)
+    }
+  }
+
+  sc uponEvent {
+    case SC_Decide(KVCommand(header, op: Operation)) => {
+      op match {
+        case _: Get => {
+          store.get(op.key) match {
+            case Some(value) => trigger(NetMessage(self, header.src, op.response(OpCode.Ok, Some(value))) -> net)
+            case None => trigger(NetMessage(self, header.src, op.response(OpCode.NotFound, None)) -> net)
+          }
+        }
+        case p: Put => {
+          store(p.key) = p.value
+          trigger(NetMessage(self, header.src, op.response(OpCode.Ok, store.get(p.key))) -> net)
+        }
+        case c: Cas => {
+          if(store.get(c.key).isDefined && store(c.key) == c.compareValue) {
+            store(c.key) = c.setValue
+          }
+          trigger(NetMessage(self, header.src, op.response(OpCode.Ok, store.get(c.key))) -> net)
+        }
+      }
     }
   }
 

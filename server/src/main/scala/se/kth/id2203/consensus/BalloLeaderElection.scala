@@ -40,7 +40,7 @@ case class CheckTimeout(timeout: ScheduleTimeout) extends Timeout(timeout);
 case class HeartbeatReq(round: Long, highestBallot: Long) extends KompicsEvent;
 case class HeartbeatResp(round: Long, ballot: Long) extends KompicsEvent;
 
-class GossipLeaderElection(init: Init[GossipLeaderElection]) extends ComponentDefinition {
+class GossipLeaderElection extends ComponentDefinition {
   val ble = provides[BallotLeaderElection];
   val net = requires[Network];
   val timer = requires[Timer];

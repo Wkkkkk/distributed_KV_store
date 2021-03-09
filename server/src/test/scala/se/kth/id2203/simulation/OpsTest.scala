@@ -33,14 +33,30 @@ import se.sics.kompics.sl.simulator._;
 import se.sics.kompics.simulator.{ SimulationScenario => JSimulationScenario }
 import se.sics.kompics.simulator.run.LauncherComp
 import se.sics.kompics.simulator.result.SimulationResultSingleton;
-import se.sics.kompics.simulator.network.impl.NetworkModels
 import scala.concurrent.duration._
 
 class OpsTest extends FlatSpec with Matchers {
 
-  private val nMessages = 10;
+  private val nMessages = 100;
 
-  "Simple Operations" should "be implemented" in { // well of course eventually they should be implemented^^
+  //  "Classloader" should "be something" in {
+  //    val cname = classOf[SimulationResultSingleton].getCanonicalName();
+  //    var cl = classOf[SimulationResultSingleton].getClassLoader;
+  //    var i = 0;
+  //    while (cl != null) {
+  //      val res = try {
+  //        val c = cl.loadClass(cname);
+  //        true
+  //      } catch {
+  //        case t: Throwable => false
+  //      }
+  //      println(s"$i -> ${cl.getClass.getName} has class? $res");
+  //      cl = cl.getParent();
+  //      i -= 1;
+  //    }
+  //  }
+
+  "Simple Operations" should " be implemented" in { // well of course eventually they should be implemented^^
     val seed = 123l;
     JSimulationScenario.setSeed(seed);
     val simpleBootScenario = SimpleScenario.scenario(3);
@@ -48,9 +64,10 @@ class OpsTest extends FlatSpec with Matchers {
     SimulationResult += ("messages" -> nMessages);
     simpleBootScenario.simulate(classOf[LauncherComp]);
     for (i <- 0 to nMessages) {
-      SimulationResult.get[String](s"$i") should be (Some("Ok"));
+      SimulationResult.get[String](s"test$i") should be (Some("Ok"));
     }
   }
+
 
 }
 
@@ -77,8 +94,6 @@ object SimpleScenario {
 
   private def isBootstrap(self: Int): Boolean = self == 1;
 
-  val setUniformLatencyNetwork = () => Op.apply((_: Unit) => ChangeNetwork(NetworkModels.withUniformRandomDelay(3, 7)));
-
   val startServerOp = Op { (self: Integer) =>
 
     val selfAddr = intToServerAddress(self)
@@ -103,14 +118,12 @@ object SimpleScenario {
 
   def scenario(servers: Int): JSimulationScenario = {
 
-    val networkSetup = raise(1, setUniformLatencyNetwork()).arrival(constant(0));
     val startCluster = raise(servers, startServerOp, 1.toN).arrival(constant(1.second));
     val startClients = raise(1, startClientOp, 1.toN).arrival(constant(1.second));
 
-    networkSetup andThen
-      0.seconds afterTermination startCluster andThen
-      10.seconds afterTermination startClients andThen
-      100.seconds afterTermination Terminate
+    startCluster andThen
+      60.seconds afterTermination startClients andThen
+      60.seconds afterTermination Terminate
   }
 
 }

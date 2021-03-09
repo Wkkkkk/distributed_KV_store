@@ -27,82 +27,80 @@ import se.kth.id2203.broadcast._;
 import se.kth.id2203.detector._;
 import se.kth.id2203.bootstrapping._;
 import se.kth.id2203.networking._;
-import se.sics.kompics.sl._;
-import se.sics.kompics.network.Network;
-import se.sics.kompics.timer.Timer;
-import util.Random;
+
+import se.sics.kompics.network.Network
+import se.sics.kompics.sl._
+
+import scala.util.Random;
 
 /**
-  * The V(ery)S(imple)OverlayManager.
-  * <p>
-  * Keeps all nodes in a single partition in one replication group.
-  * <p>
-  * Note: This implementation does not fulfill the project task. You have to
-  * support multiple partitions!
-  * <p>
-  * @author Lars Kroll <lkroll@kth.se>
-  */
+ * The V(ery)S(imple)OverlayManager.
+ * <p>
+ * Keeps all nodes in a single partition in one replication group.
+ * <p>
+ * Note: This implementation does not fulfill the project task. You have to
+ * support multiple partitions!
+ * <p>
+ *
+ * @author Lars Kroll <lkroll@kth.se>
+ */
 class VSOverlayManager extends ComponentDefinition {
-
   //******* Ports ******
-  val route = provides(Routing);
   val topo = provides[Topology];
   val boot = requires(Bootstrapping);
   val net = requires[Network];
-  val timer = requires[Timer];
-  val beb = requires[BestEffortBroadcast];
-  val epfd = requires[EventuallyPerfectFailureDetector];
+  val epfd = requires[EventuallyPerfectFailureDetector]
 
   //******* Fields ******
   val self = cfg.getValue[NetAddress]("id2203.project.address");
   private var lut: Option[LookupTable] = None;
-  var suspected = Set[NetAddress]();
+  private val replicationDegree = cfg.getValue[Int]("id2203.project.replicationDegree")
+  private val maxKey = cfg.getValue[Long]("id2203.project.maxKey")
+  private val minKey = cfg.getValue[Long]("id2203.project.minKey")
+  var suspected = Set[NetAddress]()
 
   //******* Handlers ******
   boot uponEvent {
     case GetInitialAssignments(nodes) => {
       log.info("Generating LookupTable...");
-      val lut = LookupTable.generate(nodes);
-      logger.debug(s"Generated assignments:\n $lut");
-      trigger(new InitialAssignments(lut) -> boot);
+      val l = LookupTable.generate(nodes, replicationDegree, minKey, maxKey);
+      logger.debug(s"Generated assignments:\n$l");
+      trigger(new InitialAssignments(l) -> boot);
     }
     case Booted(assignment: LookupTable) => {
       log.info("Got NodeAssignment, overlay ready.");
       lut = Some(assignment);
-      val nodes = assignment.getNodes();
-      trigger(PartitionTopology(nodes) -> topo);
-      trigger(BEB_Broadcast(BROADCAST_Test("Hi")) -> beb);
-
-      trigger(FullTopology(nodes) -> topo);
-    }
-  }
-
-  epfd uponEvent {
-    case Suspect(p) => {
-      suspected += p
-    }
-    case Restore(p) => {
-      suspected -= p
-    }
-  }
-
-  beb uponEvent {
-    case BEB_Deliver(src, BROADCAST_WITH_SOURCE(source, payload)) => {
-      log.info( s"$self received broadcast from $src with $payload");
-      trigger(NetMessage(source, self, payload) -> net);
+      // from the set of all nodes, get only the nodes of our partition
+      val partitionNodes = lut.get.partitions.filter(x => x._2.exists(p => p == self)).head._2
+      trigger(PartitionTopology(partitionNodes.toSet) -> topo)
+      val allNodes = lut.get.partitions.toSeq.flatMap(x => x._2).toSet
+      trigger(FullTopology(allNodes) -> topo)
     }
   }
 
   net uponEvent {
     case NetMessage(header, RouteMsg(key, msg)) => {
-      log.info(s"Broadcast message to all alive nodes");
-      trigger(BEB_Broadcast(BROADCAST_WITH_SOURCE(header.src, msg)) -> beb);
+      val nodes = lut.get.lookup(key);
+      assert(!nodes.isEmpty);
+      // if current node can answer request, skip forwarding
+      if(nodes.exists(x => x == self)) {
+        trigger(NetMessage(header.src, self, msg) -> net);
+      } else {
+        // forward only to a node that is not suspected
+        val aliveNodes = nodes.filterNot(x => suspected.contains(x))
+        if(aliveNodes.nonEmpty) {
+          val i = Random.nextInt(aliveNodes.size);
+          val target = aliveNodes.drop(i).head;
+          log.info(s"Forwarding message for key $key to $target");
+          trigger(NetMessage(header.src, target, msg) -> net);
+        }
+      }
     }
     case NetMessage(header, msg: Connect) => {
       lut match {
         case Some(l) => {
           log.debug("Accepting connection request from ${header.src}");
-          val size = l.getNodes().size - suspected.size;
+          val size = l.getNodes().size;
           trigger(NetMessage(self, header.src, msg.ack(size)) -> net);
         }
         case None => log.info("Rejecting connection request from ${header.src}, as system is not ready, yet.");
@@ -110,20 +108,14 @@ class VSOverlayManager extends ComponentDefinition {
     }
   }
 
-  route uponEvent {
-    case RouteMsg(key, msg) => {
-      val target = routeTo(key);
-      log.info(s"Routing message for key $key to $target");
-      trigger(NetMessage(self, target, msg) -> net);
+  epfd uponEvent {
+    case Suspect(p) => {
+      log.info(s"Node $p is suspected to have failed")
+      suspected += p
     }
-  }
-
-  def routeTo(key: String): NetAddress = {
-    val nodes = lut.get.lookup(key).toSet.diff(suspected);
-    assert(!nodes.isEmpty);
-    if (nodes.contains(self))
-      return self
-    val i = Random.nextInt(nodes.size);
-    return nodes.drop(i).head;
+    case Restore(p) => {
+      log.info(s"Node $p is not suspected to have failed anymore")
+      suspected -= p
+    }
   }
 }
